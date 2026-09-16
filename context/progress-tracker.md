@@ -6,9 +6,9 @@
 
 ## Current Status
 
-**Phase:** Phase 0 — Skeleton
-**Last completed:** 01 Project Scaffold
-**Next:** 02 Stub Graph End-to-End
+**Phase:** Phase 0 — Skeleton (complete)
+**Last completed:** 02 Stub Graph End-to-End
+**Next:** 03 extract_frames + gps_sync (Phase 1 — Tools)
 
 ---
 
@@ -17,7 +17,7 @@
 ### Phase 0 — Skeleton
 
 - [x] 01 Project Scaffold
-- [ ] 02 Stub Graph End-to-End
+- [x] 02 Stub Graph End-to-End
 
 ### Phase 1 — Tools
 
@@ -65,6 +65,24 @@
 ## Notes
 
 *(append one block per completed feature, newest first)*
+
+### 02 Stub Graph End-to-End — DONE
+
+- **Gate (feature 02 / Phase 0):** `ruff check .` 0 errors · `ruff format --check src tests` clean · `mypy --strict` clean (13 source files) · `pytest` 4/4 — incl. `tests/e2e/test_stub_run.py`: START→END on stub input, 6 frames on disk, 12 deterministic detections, 2 events (POTHOLE + TRAFFIC_JAM), 2 verdicts via Send fan-out, publish decisions, published=2/dropped=0, status=done, checkpoint sqlite persisted. State-diff asserted per writer audit (each node writes exactly its keys); race invariant asserted as counts, never order.
+- **Builder wiring verified structurally:** static edges `START→ingest→detect→track_flag`, `verify_event→gate` (fan-in), `publish→END`; routers `route_to_verify`/`route_after_gate` own track_flag/gate exclusively — no static+conditional double-fire.
+- **Files:** src/roadfix/state.py (8 models verbatim from graph-design.md), nodes/ingest.py + detect.py + track_flag.py (stubs), nodes/verify_event.py + gate.py + publish.py (stubs), graph.py (build_graph + routers + module-level `graph = build_graph()` for langgraph.json), tests/e2e/test_stub_run.py.
+- **Framework-behavior conflicts observed on langgraph 1.2.11 / mypy 2.3.1 (per AGENTS.md §21 — observed behavior wins, skills/library-docs to be updated in a library commit):**
+  1. Send payloads reach workers as RAW DICTS — neither the worker's `VerifyPayload` annotation nor `add_node(..., input_schema=VerifyPayload)` coerces at runtime. Worker-side `VerifyPayload.model_validate(payload)` at the boundary is REQUIRED (library-docs/code-standards templates implied coercion).
+  2. `add_node` typing (StateNode protocol) rejects bare callables whose first param is not named `state` — every `(payload: VerifyPayload)`-style signature fails mypy --strict regardless of body or positional-only markers. Fix: register the worker as `RunnableLambda(verify_event)` at the wiring site (langchain-core is already a langgraph dependency); worker signature stays template-exact.
+  3. `StateGraph` inference inside a function body mis-solves the Input/Output TypeVar defaults — pin with `g: StateGraph[RoadfixState] = StateGraph(RoadfixState)`.
+  4. `graph.get_graph()` drawing omits Send/static edges to late nodes — inspect `graph.builder.edges`/`branches` for wiring truth.
+- **Decisions:**
+  - `state.py` adaptations for mypy --strict: `evidence`/`track_summary` typed `dict[str, object]` (bare `dict` violates disallow_any_generics; contract shape otherwise verbatim).
+  - `graph.py` exposes module-level `graph = build_graph()` (checkpointer=None default) so langgraph.json's `roadfix.graph:graph` resolves with zero import side effects; run_pipeline/e2e build their own SqliteSaver-backed graph. Checkpointer type pinned `BaseCheckpointSaver[str]` (SqliteSaver's version type).
+  - Stub detect emits exactly 12 deterministic boxes (6 car + 3 person + 1 bus + 2 pothole over 6 frames) — matches build-plan "~10 boxes"; stub track_flag emits POTHOLE + TRAFFIC_JAM (mirrors golden case G1 shape).
+  - Publish stub writes no files (fake map/report paths) — honest Phase 0; real store/map/report tools land in Phase 1.
+- **Skills used:** langgraph-builder (primary; templates + state-and-reducers + checkpointing references), ponytail (governing). Build executed via two parallel subagents (state+3 nodes ∥ 3 nodes+graph) + main-agent integration (e2e test, gate fixes, this record).
+- **Result: `pytest` — 4 passed; Phase 0 gate green.**
 
 ### 01 Project Scaffold — DONE
 
