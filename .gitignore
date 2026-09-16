@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Env & secrets
+.env
+.env.*
+!.env.example
+
+# Tooling caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Build
+dist/
+build/
+
+# Pipeline artifacts (video frames, snapshots, run outputs) - keep dir structure
+data/inbox/*
+!data/inbox/.gitkeep
+data/runs/*
+!data/runs/.gitkeep
+
+# OS
+.DS_Store
+Thumbs.db
