@@ -7,8 +7,8 @@
 ## Current Status
 
 **Phase:** Phase 0 — Skeleton
-**Last completed:** none (bootstrap)
-**Next:** 01 Project Scaffold
+**Last completed:** 01 Project Scaffold
+**Next:** 02 Stub Graph End-to-End
 
 ---
 
@@ -16,7 +16,7 @@
 
 ### Phase 0 — Skeleton
 
-- [ ] 01 Project Scaffold
+- [x] 01 Project Scaffold
 - [ ] 02 Stub Graph End-to-End
 
 ### Phase 1 — Tools
@@ -65,3 +65,15 @@
 ## Notes
 
 *(append one block per completed feature, newest first)*
+
+### 01 Project Scaffold — DONE
+
+- **Gate (feature 01):** `ruff check .` 0 errors · `mypy --strict` clean (5 source files) · `pytest` 3/3 green (config contract tests). All re-verified independently after the build.
+- **Files:** pyproject.toml (closed dependency list, ruff/mypy-strict/pytest config, hatchling), src/roadfix/config.py (all code-standards constants + env-derived settings + call-time path helpers), .env.example (all 7 vars, no values), .gitignore, langgraph.json (→ roadfix.graph:graph, module lands with feature 02), folder tree per architecture.md, tests/test_config.py.
+- **Decisions:**
+  - mypy overrides use comma-separated module list (mypy 2.3.1 rejects pipe patterns) for ultralytics/cv2/supervision/folium/streamlit.
+  - `ROADFIX_DATA_DIR` honored by call-time functions (`data_dir()`/`runs_dir()`/`checkpoint_db()`/`events_db()`), not import-time constants — tests monkeypatch env after import.
+  - Heavy deps (ultralytics/torch, supervision, opencv, openai, folium, streamlit) declared in pyproject but not installed until Phase 1 needs them — Phase 0 code imports only langgraph/pydantic/stdlib (lazy-import rule keeps the stack out).
+  - `data/inbox/*` re-added to .gitignore (operator videos must never be committed); `!data/inbox/.gitkeep` keeps the dir tracked.
+- **Skills used:** planning-and-task-breakdown (governing), ponytail (governing), per AGENTS.md §3 pipeline. Build executed via one scaffold subagent + independent main-agent verification.
+- **Versions observed:** Python 3.12.14 · langgraph 1.2.11 · langgraph-checkpoint-sqlite 3.1.1 · pydantic 2.13.5 · pytest 9.1.1 · ruff 0.16.8 · mypy 2.3.1

@@ -1,0 +1,7 @@
+{
+  "dependencies": ["."],
+  "graphs": {
+    "roadfix": "roadfix.graph:graph"
+  },
+  "env": ".env"
+}
