@@ -1,0 +1,47 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "roadfix"
+version = "0.1.0"
+description = "RoadFix — bus dashcam road-issue detector (SIH 2026, problem SIH26124)"
+requires-python = ">=3.12"
+dependencies = [
+    "langgraph>=0.4",
+    "langgraph-checkpoint-sqlite",
+    "pydantic>=2",
+    "ultralytics",
+    "supervision",
+    "opencv-python-headless",
+    "numpy",
+    "openai",
+    "folium",
+    "streamlit",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "ruff", "mypy"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/roadfix"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM"]
+
+[tool.mypy]
+strict = true
+python_version = "3.12"
+mypy_path = "src"
+files = ["src/roadfix"]
+explicit_package_bases = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+markers = ["e2e: end-to-end stub-mode runs (deselect with '-m \"not e2e\"')"]

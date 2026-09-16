@@ -27,7 +27,7 @@ Model strings appear ONLY in `config.py`, sourced from this table. Changing a mo
 | Model / temp / max tokens | VLM_MODEL env / 0.0 / 200 |
 | Structured output | `InspectorVerdict {confirmed: bool, severity: "low"\|"medium"\|"high", confidence: float, reason: str}` — JSON object mode + Pydantic validation |
 | Consumed state | Send payload: event kind, evidence, snapshot (base64 image), attempt |
-| Version history | v1 — initial intake |
+| Version history | v1 — initial intake. Build note (Phase 1): the v1 text is static; `vlm_inspect` appends a `This event: kind/evidence` data block via `.format(kind=..., evidence=...)` and isolates the JSON-answer line for brace-safe formatting. |
 
 ```
 You are a road-event inspector for a city bus dashcam system.

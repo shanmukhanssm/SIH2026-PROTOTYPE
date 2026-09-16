@@ -264,6 +264,52 @@ def store_upsert_events(args: UpsertArgs) -> UpsertResult: ...
 
 ---
 
+## `store_query_events`
+
+**Purpose:** read side of the system of record — flat rows for the dashboard, filtered by run and/or kind.
+
+```python
+class StoreQueryArgs(BaseModel):
+    db_path: str
+    run_id: str | None = None       # None -> all runs
+    kind: str | None = None         # None -> all kinds
+    limit: int | None = None        # None -> no limit
+
+class StoredEvent(BaseModel):
+    """Flat read-model row — the dashboard's view of one accepted event."""
+    event_id: str
+    kind: str
+    severity: str
+    confirmed: bool
+    confidence: float
+    t_seconds: float
+    lat: float | None = None
+    lon: float | None = None
+    snapshot_path: str
+    run_id: str
+    reason: str
+    published_at: str
+
+class QueryResult(BaseModel):
+    events: list[StoredEvent]
+    ok: bool
+    error: str | None = None
+
+# Signature
+def store_query_events(args: StoreQueryArgs) -> QueryResult: ...
+```
+
+| Property | Value |
+| --- | --- |
+| Connection | read-only URI (`mode=ro`) — queries can never create or mutate the db |
+| Ordering / filters | `ORDER BY t_seconds ASC`; parameterized WHERE for provided filters only |
+| Error behavior | Missing/corrupt db -> `ok=False` + log. Never raises |
+| Note | `run_id` is not a `PublishedEvent` field — upsert derives it from `event_id` (prefix before first `-{kind}-`) |
+
+**Consumers:** `ui/dashboard.py` (Phase 3). **Eval:** covered by the store unit cases (filter matrix, missing db). Current: PASS.
+
+---
+
 ## `build_map`
 
 **Purpose:** render the run's heatmap — streets with more events glow more — plus per-event markers with photo popups, as one HTML file.
