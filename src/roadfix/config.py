@@ -1,14 +1,16 @@
-"""Single source of every constant and env-derived setting (context/code-standards.md).
+"""Central constants and path helpers — single source of truth.
 
-Thresholds are module constants; anything from the environment is read at call
-time via the small functions below so tests can monkeypatch env vars freely.
-Never redeclare any of these in nodes or tools.
+Two access styles, one read-logic per env var:
+- call-time readers (below) — canonical; tools and tests use these so env vars can
+  be monkeypatched freely after import;
+- import-time snapshots (STUB_MODELS, VLM_* ...) — Phase 0 module-level names kept
+  for nodes/tests that read config as constants; derived FROM the readers at import.
 """
 
 import os
+from pathlib import Path
 
-# --- Thresholds (code-standards.md; graph-design.md run limits) ---
-
+# Detection and rule thresholds (code-standards.md — do not redeclare elsewhere).
 FRAMES_PER_SECOND: float = 2.5
 STREET_CONF: float = 0.35
 POTHOLE_CONF: float = 0.30
@@ -26,15 +28,16 @@ VLM_TIMEOUT_S: float = 10.0
 RECURSION_LIMIT: int = 50
 DEFAULT_MAP_CENTER: tuple[float, float] = (17.3850, 78.4867)  # Hyderabad
 
-# --- Model policy (prompt-registry.md — model strings live ONLY here) ---
-
+# Model policy (prompt-registry.md — model strings live ONLY here).
 DEFAULT_VLM_MODEL: str = "qwen2.5-vl-7b-instruct"
 DEFAULT_STREET_WEIGHTS: str = "yolov8n.pt"
 VLM_TEMPERATURE: float = 0.0
 VLM_MAX_TOKENS: int = 200
 
 
-# --- Env-derived settings (architecture.md env table), read at call time ---
+# --- Env-derived settings, read at CALL time ---
+# WHY functions, not constants: tests monkeypatch env vars after import, so the env
+# must be read when the tool runs, not when the module is imported.
 
 
 def stub_models_enabled() -> bool:
@@ -67,3 +70,35 @@ def pothole_model_path() -> str | None:
 
 def street_weights() -> str:
     return os.environ.get("YOLO_STREET_WEIGHTS", DEFAULT_STREET_WEIGHTS)
+
+
+# --- Run artifact paths, read at call time (ROADFIX_DATA_DIR overridable) ---
+
+
+def data_dir() -> Path:
+    return Path(os.getenv("ROADFIX_DATA_DIR", "data"))
+
+
+def runs_dir() -> Path:
+    return data_dir() / "runs"
+
+
+def checkpoint_db() -> Path:
+    return runs_dir() / "checkpoints.sqlite"
+
+
+def events_db() -> Path:
+    return runs_dir() / "events.db"
+
+
+# --- Import-time env snapshots (Phase 0 module-level names) ---
+# WHY still here: nodes/tests may import these as constants; they are derived from the
+# call-time readers above so each env var has exactly one read-logic. Call-time readers
+# remain the canonical access for tools — snapshots do NOT see post-import env changes.
+
+STUB_MODELS: bool = stub_models_enabled()
+VLM_BASE_URL: str | None = vlm_base_url()
+VLM_API_KEY: str | None = vlm_api_key()
+VLM_MODEL: str = vlm_model()
+POTHOLE_MODEL_PATH: str | None = pothole_model_path()
+YOLO_STREET_WEIGHTS: str = street_weights()

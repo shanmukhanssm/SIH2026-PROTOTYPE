@@ -1,32 +1,27 @@
-# Python
-__pycache__/
-*.py[cod]
-*.egg-info/
-.venv/
-venv/
-
 # Env & secrets
 .env
-.env.*
-!.env.example
+.venv/
+
+# Python
+__pycache__/
+*.pyc
+
+# Pipeline artifacts
+data/runs/
+data/inbox/*
+!data/inbox/.gitkeep
+
+# Model weights (auto-downloaded yolov8n.pt; operator-trained pothole .pt stays local)
+*.pt
+
+# Databases
+*.sqlite
 
 # Tooling caches
 .pytest_cache/
-.ruff_cache/
 .mypy_cache/
-.coverage
-htmlcov/
+.ruff_cache/
 
 # Build
 dist/
-build/
-
-# Pipeline artifacts (video frames, snapshots, run outputs) - keep dir structure
-data/inbox/*
-!data/inbox/.gitkeep
-data/runs/*
-!data/runs/.gitkeep
-
-# OS
-.DS_Store
-Thumbs.db
+*.egg-info/

@@ -1,11 +1,4 @@
-"""RoadfixState + all Pydantic models + reducers. Contract: context/graph-design.md.
-
-State Schema section is copied verbatim (with `dict` narrowed to
-`dict[str, object]` so the module passes `mypy --strict`, which forbids
-implicitly-`Any` generic parameters). Reducer rules live in graph-design.md:
-`verdicts` appends via operator.add (parallel verify workers, same super-step);
-every other key is last-writer-wins with exactly one writer node.
-"""
+"""RoadfixState and state models — the contract per graph-design.md; reducers per Reducer Rules."""
 
 from operator import add
 from typing import Annotated, Literal
@@ -14,9 +7,9 @@ from pydantic import BaseModel, Field
 
 
 class FrameRef(BaseModel):
-    """One extracted snapshot: file on disk + timestamp (+ GPS when synced)."""
+    """One extracted snapshot — path on disk, timestamp, optional GPS."""
 
-    frame_id: str  # f{index:05d}.jpg — basename of `path` (joins are simple equality)
+    frame_id: str  # f{index:05d}
     path: str  # absolute path to jpg on disk
     t_seconds: float
     lat: float | None = None
@@ -24,9 +17,9 @@ class FrameRef(BaseModel):
 
 
 class Detection(BaseModel):
-    """One detector box on one frame, from one eye."""
+    """One box from one eye on one frame."""
 
-    frame_id: str  # basename of the frame's path — see FrameRef
+    frame_id: str
     source: Literal["street", "pothole"]
     class_name: str  # car, bus, truck, motorcycle, bicycle, person, pothole, crack...
     conf: float = Field(ge=0.0, le=1.0)
@@ -35,22 +28,25 @@ class Detection(BaseModel):
 
 
 class Event(BaseModel):
-    """One flagged moment from the rule engine, with its evidence."""
+    """One flagged road issue, anchored to a frame."""
 
     event_id: str  # {run_id}-{kind}-{frame_id}-{n}
     kind: Literal["POTHOLE", "KIDS_CROSSING", "TRAFFIC_JAM"]
-    frame_id: str  # anchor frame — basename of the frame's path, see FrameRef
+    frame_id: str  # anchor frame
     t_seconds: float
     lat: float | None = None
     lon: float | None = None
     snapshot_path: str  # full-frame jpg; crop path derived
     bbox: list[float] | None = None
     track_id: int | None = None
-    evidence: dict[str, object]  # consecutive_count / dwell_s+looks_small / unique_vehicles
+    # WHY dict[str, object] not dict: mypy --strict forbids bare generic params; object is the
+    # honest wide type (code-standards: never Any).
+    # rule-specific: consecutive_count / dwell_s+looks_small / unique_vehicles
+    evidence: dict[str, object]
 
 
 class Verdict(BaseModel):
-    """One VLM inspection verdict for one event."""
+    """One inspector decision for one event — VLM or stub."""
 
     event_id: str
     kind: str
@@ -59,11 +55,11 @@ class Verdict(BaseModel):
     severity: Literal["low", "medium", "high"]
     confidence: float = Field(ge=0.0, le=1.0)
     reason: str
-    verifier: str  # model name or "stub" or "error:<code>"
+    verifier: str  # "qwen2.5-vl-..." or "stub"
 
 
 class GateDecision(BaseModel):
-    """One deterministic gate outcome for one event."""
+    """Gate ruling for one event — publish, recheck, or drop."""
 
     event_id: str
     action: Literal["publish", "recheck", "drop"]
@@ -71,32 +67,35 @@ class GateDecision(BaseModel):
 
 
 class PublishedEvent(BaseModel):
-    """An accepted event paired with the verdict that let it through."""
+    """Event plus its accepted verdict, as handed to publish."""
 
     event: Event
     verdict: Verdict
 
 
 class RoadfixState(BaseModel):
-    """The one graph state. Bulk data (frames, snapshots) stays on disk — paths only."""
+    """Full graph state — every key has exactly one writer except verdicts (reduced with add)."""
 
     # inputs
     video_path: str
     gps_track_path: str | None = None
     run_id: str
-    # WATCH — single writer: ingest (overwrite)
-    frames: list[FrameRef] = []
-    # SPOT — single writer: detect (overwrite)
-    detections: list[Detection] = []
-    # TRACK & FLAG — single writer: track_flag (overwrite)
-    events: list[Event] = []
-    track_summary: dict[str, object] = {}
-    # DOUBLE-CHECK — many parallel workers; REDUCER REQUIRED
+    # WATCH
+    frames: list[FrameRef] = []  # single writer: ingest — overwrite
+    # SPOT
+    detections: list[Detection] = []  # single writer: detect — overwrite
+    # TRACK & FLAG
+    events: list[Event] = []  # single writer: track_flag — overwrite
+    # WHY dict[str, object] not dict: mypy --strict forbids bare generic params; object is the
+    # honest wide type (code-standards: never Any).
+    track_summary: dict[str, object] = {}  # single writer: track_flag — overwrite
+    # DOUBLE-CHECK (fan-out)
+    # REDUCER REQUIRED — parallel workers, same super-step
     verdicts: Annotated[list[Verdict], add] = []
-    # gate — single writer: gate (overwrite, recomputed per pass)
+    # single writer: gate — overwrite (recomputed per pass)
     gate_decisions: list[GateDecision] = []
-    # SHOW — single writer: publish (overwrite)
-    published: list[PublishedEvent] = []
+    # SHOW
+    published: list[PublishedEvent] = []  # single writer: publish — overwrite
     dropped_count: int = 0
     map_path: str | None = None
     report_path: str | None = None
