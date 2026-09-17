@@ -1,56 +1,42 @@
-"""SPOT (stub) — deterministic street+pothole boxes per frame; real YOLO eyes land in Phase 1."""
+"""SPOT — run both YOLO eyes over every frame; merge boxes with `source` per eye.
 
+Consumes tools `yolo_street` + `yolo_pothole` (tool-registry.md); writes ONLY the
+`detections` key (writer audit, graph-design.md). Eyes degrade independently:
+a missing/unloadable model contributes nothing for that eye while the other still
+runs; both absent -> `detections=[]`. Tool results are extended verbatim —
+Detection.frame_id is basename(frame.path) (detectors.py), which equals
+FrameRef.frame_id, so downstream joins need no path surgery. Never raises past
+the node.
+"""
+
+import logging
+
+from roadfix.config import POTHOLE_CONF, STREET_CONF
 from roadfix.state import Detection, RoadfixState
+from roadfix.tools.detectors import DetectArgs, yolo_pothole, yolo_street
 
-
-def _boxes_for_index(frame_id: str, i: int) -> list[Detection]:
-    """Deterministic boxes for frame i — same input, same output, always."""
-    # Full stub run: 6 frames → 6 cars + 3 persons + 1 bus + 2 potholes = 12 boxes.
-    boxes = [
-        Detection(
-            frame_id=frame_id,
-            source="street",
-            class_name="car",
-            conf=0.81,
-            bbox=[40.0, 220.0, 180.0, 340.0],
-        )
-    ]
-    if i % 2 == 1:
-        boxes.append(
-            Detection(
-                frame_id=frame_id,
-                source="street",
-                class_name="person",
-                conf=0.66,
-                bbox=[600.0, 300.0, 660.0, 430.0],
-            )
-        )
-    if i == 2:
-        boxes.append(
-            Detection(
-                frame_id=frame_id,
-                source="street",
-                class_name="bus",
-                conf=0.74,
-                bbox=[900.0, 140.0, 1150.0, 380.0],
-            )
-        )
-    if i in (0, 1):
-        boxes.append(
-            Detection(
-                frame_id=frame_id,
-                source="pothole",
-                class_name="pothole",
-                conf=0.55,
-                bbox=[300.0, 500.0, 420.0, 560.0],
-            )
-        )
-    return boxes
+logger = logging.getLogger(__name__)
 
 
 def detect(state: RoadfixState) -> dict[str, object]:
-    """SPOT (stub) — deterministic boxes per frame. Returns state UPDATE only."""
+    """SPOT — both YOLO eyes per frame, per-eye degradation composes. Returns state UPDATE only."""
     detections: list[Detection] = []
-    for i, frame in enumerate(state.frames):
-        detections.extend(_boxes_for_index(frame.frame_id, i))
+    if not state.frames:
+        return {"detections": detections}
+    try:
+        for frame in state.frames:
+            street = yolo_street(DetectArgs(frame_path=frame.path, conf=STREET_CONF))
+            pothole = yolo_pothole(DetectArgs(frame_path=frame.path, conf=POTHOLE_CONF))
+            if not street.model_loaded:
+                logger.warning(
+                    "[detect] street eye degraded on %s: %s", frame.frame_id, street.error
+                )
+            if not pothole.model_loaded:
+                logger.warning(
+                    "[detect] pothole eye degraded on %s: %s", frame.frame_id, pothole.error
+                )
+            detections.extend(street.detections)
+            detections.extend(pothole.detections)
+    except Exception as exc:  # boundary — return whatever accumulated, never propagate
+        logger.warning("[detect] %s: %s", type(exc).__name__, exc)
     return {"detections": detections}

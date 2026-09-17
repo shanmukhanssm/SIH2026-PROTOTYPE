@@ -6,9 +6,9 @@
 
 ## Current Status
 
-**Phase:** Phase 1 — Tools (complete; merged with agent-0's Phase 0)
-**Last completed:** 02 Stub Graph End-to-End (Phase 0) + 03–08 (all six Phase 1 features)
-**Next:** 09 ingest + detect nodes (real) — Phase 2 (gate: Layer 1 tool evals green, see Notes)
+**Phase:** Phase 2 — Nodes (complete; built in one parallel session, independent review passed)
+**Last completed:** 09–11 (all three Phase 2 features) — real ingest/detect/track_flag/verify_event/gate
+**Next:** 12 Real wiring + CLI runner — Phase 3 (gate: Layer 2 node evals green, see Notes)
 
 ---
 
@@ -30,9 +30,9 @@
 
 ### Phase 2 — Nodes
 
-- [ ] 09 ingest + detect nodes (real)
-- [ ] 10 track_flag node (real)
-- [ ] 11 verify worker + gate (real)
+- [x] 09 ingest + detect nodes (real)
+- [x] 10 track_flag node (real)
+- [x] 11 verify worker + gate (real)
 
 ### Phase 3 — Main Graph
 
@@ -65,6 +65,19 @@
 ## Notes
 
 *(append one block per completed feature, newest first)*
+
+### Phase 2 — Nodes (features 09–11) — built in one parallel session, independent review passed
+
+**Gate result — Layer 2 node evals: GREEN.** Full suite: 118 passed (53 Phase-1 tool evals + 57 node tests + 3 config + 2 e2e), `ruff check` clean, `mypy --strict` clean (22 source files). All five real nodes land: ingest (extract_frames → gps_sync, honest zero-frame path), detect (both eyes per frame, per-eye degradation composes), track_flag (ByteTrack + three PURE-FUNCTION rules + real snapshot files), verify_event (Send worker over vlm_inspect, raw-dict boundary validation), gate (attempt-aware thresholds, wholesale recompute, `_latest_by_event` preserved). The e2e was rewritten for real nodes: a planted-detector run (13 cars + 2-frame pothole → TRAFFIC_JAM + POTHOLE fire once, stub verdicts publish, writer audit asserted per node write) plus an honest empty-run path (missing video → zero everything → `status="done"`).
+
+**Decisions & caveats to carry into Phase 3:**
+- **Rule semantics pinned by tests (they ARE the contract):** pothole IoU ≥ 0.4 INCLUSIVE over ≥ 2 consecutive timeline frames, anchored at streak start, same-physical-pothole dedupe (only flagged chains' boxes pooled — deliberate asymmetry, WHY-commented); kids = tracked person, bbox CENTER-y in [0.55, 1.0] band (inclusive), dwell > 2.0 strict, median height ratio < 0.25 strict, one event per track; jam = unique vehicles > 12 strict per closed 30 s window, deduped to non-overlapping windows, anchor = last frame in window.
+- **Review fix (MAJOR):** jam candidate window starts are ALL distinct appearance times, not each track's first — the first-appearance scan provably missed qualifying windows (multi-burst occlusion chains); regression test `test_jam_rule_qualifying_window_far_from_first_appearances` pins it. Boundary tests added: IoU == 0.4 chains; smallness ratio == 0.25 silent.
+- Gate rule strings: `first_pass_publish` / `first_pass_recheck` / `first_pass_drop_unconfirmed` / `first_pass_drop_low_conf` / `final_pass_publish` / `final_pass_drop`; gate recheck set ⇔ `route_after_gate` re-Send set under MAX_VERIFY_ATTEMPTS=2 (verified bidirectionally). Flagged for a future library commit: if MAX_VERIFY_ATTEMPTS is ever raised above 2, `route_after_gate` (attempt+1 < MAX) becomes more eager than the gate's final-pass rule.
+- langgraph 1.2 state observation: channels never written by any node behave asymmetrically in `get_state().values` — reducer channels (verdicts) materialize their default, overwrite channels (gate_decisions) stay ABSENT until first write; the empty-run e2e asserts absence as evidence the gate never ran.
+- `ingest` keeps one `# type: ignore[call-arg]` on `GpsSyncArgs` (repo runs mypy without the pydantic plugin, which synthesizes Field-defaulted args as required); enabling the pydantic mypy plugin repo-wide would remove it — deferred to a library commit.
+- publish node intentionally still stub (build-plan: real store/map/report wiring is feature 12, Phase 3); `_latest_by_event` import contract for publish.py preserved byte-identical.
+- Build executed via three parallel subagents (09 ∥ 10 ∥ 11) + main-agent integration (e2e rewrite, gate runs) + an independent review subagent (verdict REQUEST_CHANGES → one MAJOR fixed, two MINORs fixed, one documented); the track_flag subagent hit a context deadline after writing code but before verification — main agent completed its verify loop (defaultdict KeyError fix + one test-side anchor assertion corrected against the pinned docstring interpretation).
 
 ### Merge: Phase 1 (local) × Phase 0 (origin/main) — DONE
 
