@@ -26,7 +26,7 @@ from pydantic import BaseModel, Field, ValidationError
 from roadfix.config import (
     VLM_MAX_TOKENS,
     VLM_TEMPERATURE,
-    VLM_TIMEOUT_S,
+    vlm_timeout_s,
     stub_models_enabled,
     vlm_api_key,
     vlm_base_url,
@@ -121,7 +121,7 @@ def _get_client() -> OpenAI:
     """Build a fresh client per call — cheap, stateless. Tests monkeypatch this seam."""
     import openai  # lazy heavy import (code-standards.md)
 
-    return openai.OpenAI(base_url=vlm_base_url(), api_key=vlm_api_key(), timeout=VLM_TIMEOUT_S)
+    return openai.OpenAI(base_url=vlm_base_url(), api_key=vlm_api_key(), timeout=vlm_timeout_s())
 
 
 def _user_message(data_url: str, text: str) -> ChatCompletionUserMessageParam:

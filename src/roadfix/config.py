@@ -24,7 +24,7 @@ JAM_MIN_VEHICLES: int = 12
 GATE_PUBLISH: float = 0.7
 GATE_RECHECK: float = 0.4
 MAX_VERIFY_ATTEMPTS: int = 2
-VLM_TIMEOUT_S: float = 10.0
+VLM_TIMEOUT_S: float = 30.0
 RECURSION_LIMIT: int = 50
 DEFAULT_MAP_CENTER: tuple[float, float] = (17.3850, 78.4867)  # Hyderabad
 
@@ -61,6 +61,19 @@ def vlm_model() -> str:
 def vlm_json_mode() -> str:
     """`auto` | `off` — endpoints that 400 on response_format drop it (library-docs.md)."""
     return os.environ.get("VLM_JSON_MODE", "auto")
+
+
+def vlm_timeout_s() -> float:
+    """Per-request HTTP timeout (seconds).
+
+    Default 30.0 — generous enough for free-tier gateways (e.g. xkiro) that
+    run 3-8s per vision request + retries + JSON-mode fallback. Override
+    via VLM_TIMEOUT_S env var if you need tighter bounds for production.
+    """
+    try:
+        return float(os.environ.get("VLM_TIMEOUT_S", "30.0"))
+    except ValueError:
+        return 30.0
 
 
 def pothole_model_path() -> str | None:
