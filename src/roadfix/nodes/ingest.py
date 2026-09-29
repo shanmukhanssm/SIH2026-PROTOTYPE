@@ -9,7 +9,7 @@ lat/lon stay None. Never raises past the node.
 
 import logging
 
-from roadfix.config import FRAMES_PER_SECOND, runs_dir
+from roadfix.config import frames_per_second, runs_dir
 from roadfix.state import RoadfixState
 from roadfix.tools.frames import ExtractFramesArgs, GpsSyncArgs, extract_frames, gps_sync
 
@@ -23,7 +23,7 @@ def ingest(state: RoadfixState) -> dict[str, object]:
             ExtractFramesArgs(
                 video_path=state.video_path,
                 out_dir=str(runs_dir() / state.run_id / "frames"),
-                fps=FRAMES_PER_SECOND,
+                fps=frames_per_second(),
             )
         )
         if not result.ok:

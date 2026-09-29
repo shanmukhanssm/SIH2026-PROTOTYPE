@@ -96,6 +96,22 @@ def main() -> int:
                    help="Per-request timeout (s). Default: 30")
     p.add_argument("--vlm-json-mode", choices=["auto", "off"], default=None,
                    help="Send response_format:json_object. Default: auto")
+
+    # Detection settings — needed to actually find potholes
+    p.add_argument("--pothole-weights", default=None,
+                   help="Path to a pothole-detection YOLO .pt file. REQUIRED for pothole "
+                        "detection — without it the pothole eye is disabled. "
+                        "Recommended: keremberke/yolov8n-pothole-segmentation/best.pt "
+                        "(single class 'pothole', 6.8 MB) — download from "
+                        "https://huggingface.co/keremberke/yolov8n-pothole-segmentation/resolve/main/best.pt")
+    p.add_argument("--fps", type=float, default=None,
+                   help="Frame-sampling rate (frames per second). Default: 2.5. "
+                        "Bump to 5 for urban traffic, 10-15 for highway speeds — "
+                        "denser sampling helps the POTHOLE_MIN_CONSECUTIVE rule fire.")
+    p.add_argument("--pothole-conf", type=float, default=None,
+                   help="Pothole YOLO confidence threshold. Default: 0.30. "
+                        "Lower to 0.20-0.25 to catch weaker detections (VLM filters "
+                        "false positives downstream).")
     args = p.parse_args()
 
     if args.stub:
@@ -122,6 +138,13 @@ def main() -> int:
     if args.vlm_json_mode:
         os.environ["VLM_JSON_MODE"] = args.vlm_json_mode
 
+    if args.pothole_weights:
+        os.environ["POTHOLE_MODEL_PATH"] = args.pothole_weights
+    if args.fps is not None:
+        os.environ["FRAMES_PER_SECOND"] = str(args.fps)
+    if args.pothole_conf is not None:
+        os.environ["POTHOLE_CONF"] = str(args.pothole_conf)
+
     if args.data_dir:
         os.environ["ROADFIX_DATA_DIR"] = args.data_dir
     elif "ROADFIX_DATA_DIR" not in os.environ:
@@ -144,6 +167,9 @@ def main() -> int:
     print(f"[run_video] vlm_model     = {os.environ.get('VLM_MODEL', '(default qwen2.5-vl-7b-instruct)')}")
     print(f"[run_video] vlm_timeout_s = {os.environ.get('VLM_TIMEOUT_S', '30 (default)')}")
     print(f"[run_video] vlm_json_mode = {os.environ.get('VLM_JSON_MODE', 'auto (default)')}")
+    print(f"[run_video] fps           = {os.environ.get('FRAMES_PER_SECOND', '2.5 (default)')}")
+    print(f"[run_video] pothole_conf  = {os.environ.get('POTHOLE_CONF', '0.30 (default)')}")
+    print(f"[run_video] pothole_weights={os.environ.get('POTHOLE_MODEL_PATH', '(UNSET — pothole eye DISABLED)')}")
 
     ckpt = runs_dir() / "checkpoints.sqlite"
     ckpt.parent.mkdir(parents=True, exist_ok=True)

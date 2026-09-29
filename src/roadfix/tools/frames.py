@@ -23,7 +23,7 @@ type GpsPoint = tuple[float, float, float]  # (t_seconds, lat, lon)
 class ExtractFramesArgs(BaseModel):
     video_path: str = Field(..., description="Path to dashcam video")
     out_dir: str  # data/runs/<run_id>/frames
-    fps: float = Field(2.5, gt=0, le=5)
+    fps: float = Field(2.5, gt=0, le=30)
 
 
 class ExtractedFrames(BaseModel):

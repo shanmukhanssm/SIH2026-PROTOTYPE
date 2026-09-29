@@ -76,6 +76,34 @@ def vlm_timeout_s() -> float:
         return 30.0
 
 
+def frames_per_second() -> float:
+    """Frame-sampling rate for ingest (frames per second).
+
+    Default 2.5 (code-standards baseline). Override via FRAMES_PER_SECOND env var
+    to densify sampling — useful for fast-moving buses where 2.5 fps may miss
+    consecutive-frame pothole chains (POTHOLE_MIN_CONSECUTIVE rule). Typical
+    bump: 5.0 for urban traffic, 10-15 for highway speeds. Note: higher fps
+    linearly increases YOLO inference time.
+    """
+    try:
+        return float(os.environ.get("FRAMES_PER_SECOND", str(FRAMES_PER_SECOND)))
+    except ValueError:
+        return FRAMES_PER_SECOND
+
+
+def pothole_conf() -> float:
+    """Confidence threshold for the pothole YOLO eye.
+
+    Default 0.30. Override via POTHOLE_CONF env var. Lower to 0.20-0.25 to
+    catch weaker pothole detections — the VLM inspector (verify_event node)
+    will filter false positives downstream via the gate.
+    """
+    try:
+        return float(os.environ.get("POTHOLE_CONF", str(POTHOLE_CONF)))
+    except ValueError:
+        return POTHOLE_CONF
+
+
 def pothole_model_path() -> str | None:
     """User-supplied RDD2022-trained .pt; absent -> pothole eye disabled."""
     return os.environ.get("POTHOLE_MODEL_PATH")

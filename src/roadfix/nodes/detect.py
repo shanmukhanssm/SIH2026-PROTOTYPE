@@ -11,7 +11,7 @@ the node.
 
 import logging
 
-from roadfix.config import POTHOLE_CONF, STREET_CONF
+from roadfix.config import STREET_CONF, pothole_conf
 from roadfix.state import Detection, RoadfixState
 from roadfix.tools.detectors import DetectArgs, yolo_pothole, yolo_street
 
@@ -24,9 +24,10 @@ def detect(state: RoadfixState) -> dict[str, object]:
     if not state.frames:
         return {"detections": detections}
     try:
+        pothole_conf_val = pothole_conf()
         for frame in state.frames:
             street = yolo_street(DetectArgs(frame_path=frame.path, conf=STREET_CONF))
-            pothole = yolo_pothole(DetectArgs(frame_path=frame.path, conf=POTHOLE_CONF))
+            pothole = yolo_pothole(DetectArgs(frame_path=frame.path, conf=pothole_conf_val))
             if not street.model_loaded:
                 logger.warning(
                     "[detect] street eye degraded on %s: %s", frame.frame_id, street.error
